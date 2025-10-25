@@ -1,5 +1,8 @@
 import random
-from models.modelos import rutas_frutas, rutas_verduras, obtener_ruta_por_categoria
+import time
+import unicodedata
+from models.modelos import obtener_ruta_por_categoria
+from modules.ui_renderer import draw_text_with_background
 
 
 class MundoFrutayverduraAR:
@@ -12,38 +15,83 @@ class MundoFrutayverduraAR:
         self.ui = ui_renderer
         self.voice = voice_system
         self.state = game_state
-        self.modelos_a_mostrar = []  # lista de tuplas: (categoria, fruta_verdura, marker_id)
+        self.modelos_a_mostrar = []  # lista de tuplas: (categoria, alimento, marker_id)
 
-        # Base de datos ajustada para coincidir con los modelos
+        # Base de datos de alimentos con modelos disponibles
         self.alimentos = [
             {"nombre": "Apple", "tipo": "fruta", "color": "rojo"},
             {"nombre": "Banana", "tipo": "fruta", "color": "amarillo"},
-            {"nombre": "Orange", "tipo": "fruta", "color": "naranja"},
-            {"nombre": "Strawberry", "tipo": "fruta", "color": "rojo"},
-            {"nombre": "Carrot", "tipo": "verdura", "color": "naranja"},
-            {"nombre": "Cucumber", "tipo": "verdura", "color": "verde"},
-            {"nombre": "Tomato", "tipo": "fruta", "color": "rojo"},
-            {"nombre": "Spinach", "tipo": "verdura", "color": "verde"},
+            {"nombre": "Blueberry", "tipo": "fruta", "color": "morado"},
+            {"nombre": "Cherry", "tipo": "fruta", "color": "rojo"},
             {"nombre": "Grape", "tipo": "fruta", "color": "morado"},
+            {"nombre": "Kiwi", "tipo": "fruta", "color": "verde"},
+            {"nombre": "Lemon", "tipo": "fruta", "color": "amarillo"},
+            {"nombre": "Mango", "tipo": "fruta", "color": "naranja"},
+            {"nombre": "Melon", "tipo": "fruta", "color": "verde"},
+            {"nombre": "Orange", "tipo": "fruta", "color": "naranja"},
+            {"nombre": "Papaya", "tipo": "fruta", "color": "naranja"},
+            {"nombre": "Pear", "tipo": "fruta", "color": "verde"},
+            {"nombre": "Pineapple", "tipo": "fruta", "color": "amarillo"},
+            {"nombre": "Strawberry", "tipo": "fruta", "color": "rojo"},
+            {"nombre": "Watermelon", "tipo": "fruta", "color": "verde"},
+            {"nombre": "Carrot", "tipo": "verdura", "color": "naranja"},
+            {"nombre": "Broccoli", "tipo": "verdura", "color": "verde"},
+            {"nombre": "Cauliflower", "tipo": "verdura", "color": "blanco"},
+            {"nombre": "Cucumber", "tipo": "verdura", "color": "verde"},
+            {"nombre": "Corn", "tipo": "verdura", "color": "amarillo"},
+            {"nombre": "Green_Peas", "tipo": "verdura", "color": "verde"},
+            {"nombre": "Green_Leek", "tipo": "verdura", "color": "verde"},
+            {"nombre": "Mushroom", "tipo": "verdura", "color": "marron"},
+            {"nombre": "Onion", "tipo": "verdura", "color": "blanco"},
+            {"nombre": "Pumpkin", "tipo": "verdura", "color": "naranja"},
+            {"nombre": "Spinach", "tipo": "verdura", "color": "verde"},
+            {"nombre": "Vegetable", "tipo": "verdura", "color": "verde"}
         ]
 
+        # Minijuegos
+        self.juegos = {
+            "adivina": self.juego_adivina,
+            "color": self.juego_color,
+            "clasifica": self.juego_clasifica
+        }
+
         # Variables de sesión
-        self.juego_actual = None
-        self.ronda = 0
-        self.aciertos = 0
-        self.en_juego = False
-        self.color_pedido = None
+        self.estrellas = 0
+        self.ronda_actual = 0
+        self.total_rondas = 3
+        self.juego_en_curso = None
+        self.respuesta_correcta = None
         self.alimento_actual = None
         self.opciones = []
+        self.color_pedido = None
+
+    # ---------------------------------------------------
+    # MÉTODO AUXILIAR: mostrar mensaje
+    # ---------------------------------------------------
+    def mostrar_mensaje(self, texto, pos=(50, 60), color=(255, 255, 255),
+                         bg_color=(56, 118, 29), font_scale=0.7):
+        if hasattr(self.state, "frame_actual") and self.state.frame_actual is not None:
+            draw_text_with_background(self.state.frame_actual, texto, pos, font_scale, color, bg_color)
+        else:
+            print(f"[MundoFrutayverduraAR] {texto}")
+
+    # ---------------------------------------------------
+    # MÉTODO AUXILIAR: normalizar texto (tildes y espacios)
+    # ---------------------------------------------------
+    def normalizar(self, texto):
+        texto = texto.upper()
+        texto = ''.join(c for c in unicodedata.normalize('NFD', texto)
+                        if unicodedata.category(c) != 'Mn')
+        return texto.replace(" ", "")
 
     # ---------------------------------------------------
     # INICIO DEL MUNDO
     # ---------------------------------------------------
     def iniciar(self):
-        self.ui.mostrar_mensaje("🍎🥕 Bienvenido al Mundo de las Frutas y Verduras.")
-        self.ui.mostrar_mensaje("Aquí aprenderás a reconocer alimentos mágicos por su color, forma y tipo.")
-        self.ui.mostrar_mensaje("Puedes decir: 'adivina', 'color' o 'clasifica' para comenzar un minijuego.")
-        self.ui.mostrar_mensaje("O di 'salir' para regresar al menú principal.")
+        print("🍎🥕 Bienvenido al Mundo de las Frutas y Verduras.")
+        print("Aprenderás a reconocer alimentos mágicos por su color, forma y tipo.")
+        print("Di: 'adivina', 'color' o 'clasifica' para comenzar un minijuego.")
+        print("O di 'salir' para regresar al menú principal.")
         self.state.fase = "mundo_fruta_y_verdura"
 
     # ---------------------------------------------------
@@ -51,151 +99,257 @@ class MundoFrutayverduraAR:
     # ---------------------------------------------------
     def iniciar_juego(self, tipo):
         tipo = tipo.lower()
-        if tipo not in ["adivina", "color", "clasifica"]:
-            self.ui.mostrar_mensaje("⚠️ No conozco ese minijuego. Prueba con 'adivina', 'color' o 'clasifica'.")
+        if tipo not in self.juegos:
+            print("⚠️ No conozco ese minijuego. Prueba con 'adivina', 'color' o 'clasifica'.")
             return
 
-        self.juego_actual = tipo
-        self.ronda = 0
-        self.aciertos = 0
-        self.en_juego = True
+        # Reiniciar variables de juego
+        self.estrellas = 0
+        self.ronda_actual = 0
+        self.juego_en_curso = tipo
         self.state.fase = "jugando"
+        self.modelos_a_mostrar.clear()
 
-        self.ui.mostrar_mensaje(f"🌟 Comenzamos el minijuego '{self.juego_actual.title()}' 🌟")
-        if tipo == "adivina":
-            self._siguiente_ronda_adivina()
-        elif tipo == "color":
-            self._siguiente_ronda_color()
-        elif tipo == "clasifica":
-            self._siguiente_ronda_tipo()
+        print(f"🌟 ¡Comienza el minijuego {tipo.upper()}! 🌟")
+        time.sleep(0.5)
+        self.juegos[tipo]()
 
     # ---------------------------------------------------
-    # PROCESAMIENTO DE COMANDO POR VOZ
+    # PROCESAR COMANDO POR VOZ
+    # ---------------------------------------------------
+    # def procesar_comando(self, comando):
+    #     if not self.juego_en_curso:
+    #         print("🎮 Di 'adivina', 'color' o 'clasifica' para iniciar un minijuego.")
+    #         return
+
+    #     comando_norm = self.normalizar(comando)
+    #     traducciones = {
+    #         "manzana": "Apple",
+    #         "platano": "Banana",
+    #         "plátano": "Banana",
+    #         "arándano": "Blueberry",
+    #         "fresa": "Strawberry",
+    #         "cereza": "Cherry",
+    #         "uva": "Grape",
+    #         "kiwi": "Kiwi",
+    #         "limon": "Lemon",
+    #         "mango": "Mango",
+    #         "melon": "Melon",
+    #         "naranja": "Orange",
+    #         "papaya": "Papaya",
+    #         "pera": "Pear",
+    #         "piña": "Pineapple",
+    #         "sandia": "Watermelon",
+    #         "zanahoria": "Carrot",
+    #         "brocoli": "Broccoli",
+    #         "coliflor": "Cauliflower",
+    #         "pepino": "Cucumber",
+    #         "maiz": "Corn",
+    #         "guisantes": "Green_Peas",
+    #         "puerro": "Green_Leek",
+    #         "champinon": "Mushroom",
+    #         "cebolla": "Onion",
+    #         "calabaza": "Pumpkin",
+    #         "espinaca": "Spinach",
+    #         "verdura": "Vegetable"
+    #     }
+    #     comando_trad = traducciones.get(comando_norm.lower(), comando_norm)
+
+    #     # Evaluar respuesta
+    #     if self.juego_en_curso == "adivina":
+    #         correcto = self.alimento_actual["nombre"]
+    #         if comando_trad == correcto:
+    #             print(f"✅ ¡Correcto! Era {self._nombre_visible(correcto)} 🍎")
+    #             self.estrellas += 1
+    #         else:
+    #             print(f"❌ No, era {self._nombre_visible(correcto)}.")
+
+    #     elif self.juego_en_curso == "color":
+    #         correctos = [a["nombre"] for a in self.opciones if a["color"] == self.color_pedido]
+    #         if comando_trad in correctos:
+    #             print(f"✅ ¡Muy bien! Ese color es {self.color_pedido} 🌈")
+    #             self.estrellas += 1
+    #         else:
+    #             print(f"❌ No es de color {self.color_pedido}.")
+
+    #     elif self.juego_en_curso == "clasifica":
+    #         correcto = self.alimento_actual["tipo"]
+    #         if comando_norm == correcto.upper():
+    #             print(f"✅ ¡Exacto! Es una {correcto} 🥦")
+    #             self.estrellas += 1
+    #         else:
+    #             print(f"❌ No, en realidad es una {correcto}.")
+
+    #     # Avanzar ronda
+    #     self.ronda_actual += 1
+    #     if self.ronda_actual < self.total_rondas:
+    #         time.sleep(0.8)
+    #         self.juegos[self.juego_en_curso]()
+    #     else:
+    #         print(f"🎉 ¡Has completado el minijuego! Ganaste {self.estrellas} estrellas 🌟")
+    #         # Registrar resultado
+    #         if hasattr(self.state, "gestor_juegos"):
+    #             self.state.gestor_juegos.registrar_resultado("fruta_y_verdura", self.juego_en_curso, self.estrellas)
+
+
+    # ---------------------------------------------------
+    # PROCESAR COMANDO POR VOZ
     # ---------------------------------------------------
     def procesar_comando(self, comando):
-        if not self.en_juego:
-            self.ui.mostrar_mensaje("🎮 Di 'adivina', 'color' o 'clasifica' para iniciar un minijuego.")
+        if not self.juego_en_curso:
+            print("🎮 Di 'adivina', 'color' o 'clasifica' para iniciar un minijuego.")
             return
 
-        comando = comando.lower().strip()
-        traducciones = {
-            "manzana": "Apple",
-            "plátano": "Banana",
-            "platano": "Banana",
-            "naranja": "Orange",
-            "fresa": "Strawberry",
-            "zanahoria": "Carrot",
-            "pepino": "Cucumber",
-            "tomate": "Tomato",
-            "espinaca": "Spinach",
-            "uva": "Grape",
-            "uvas": "Grape",
-        }
-        comando_traducido = traducciones.get(comando, comando)
+        comando_modelo = self._traducir_a_modelo(comando)
+        comando_norm = self.normalizar(comando)
 
-        if self.juego_actual == "adivina":
+        # Evaluar respuesta según minijuego
+        if self.juego_en_curso == "adivina":
             correcto = self.alimento_actual["nombre"]
-            if comando_traducido == correcto:
-                self.aciertos += 1
-                self.ui.mostrar_mensaje(f"✅ ¡Correcto! Era una {comando} 🍎")
+            if comando_modelo == correcto:
+                print(f"✅ ¡Correcto! Era {self._nombre_visible(correcto)} 🍎")
+                self.estrellas += 1
             else:
-                self.ui.mostrar_mensaje(f"❌ No, era una {self._nombre_visible(correcto)}.")
-            self._siguiente_ronda_adivina()
+                print(f"❌ No, era {self._nombre_visible(correcto)}.")
 
-        elif self.juego_actual == "color":
+        elif self.juego_en_curso == "color":
             correctos = [a["nombre"] for a in self.opciones if a["color"] == self.color_pedido]
-            if comando_traducido in correctos:
-                self.aciertos += 1
-                self.ui.mostrar_mensaje(f"✅ ¡Muy bien! Ese color es {self.color_pedido} 🌈")
+            if comando_modelo in correctos:
+                print(f"✅ ¡Muy bien! Ese color es {self.color_pedido} 🌈")
+                self.estrellas += 1
             else:
-                self.ui.mostrar_mensaje(f"❌ No es de color {self.color_pedido}.")
-            self._siguiente_ronda_color()
+                print(f"❌ No es de color {self.color_pedido}.")
 
-        elif self.juego_actual == "clasifica":
+        elif self.juego_en_curso == "clasifica":
             correcto = self.alimento_actual["tipo"]
-            if comando == correcto:
-                self.aciertos += 1
-                self.ui.mostrar_mensaje(f"✅ ¡Exacto! Es una {correcto} 🥦")
+            if comando_norm in ["FRUTA", "FRUTAS"] and correcto == "fruta":
+                print("✅ ¡Exacto! Es una fruta 🍉")
+                self.estrellas += 1
+            elif comando_norm in ["VERDURA", "VERDURAS"] and correcto == "verdura":
+                print("✅ ¡Exacto! Es una verdura 🥦")
+                self.estrellas += 1
             else:
-                self.ui.mostrar_mensaje(f"❌ No, en realidad es una {correcto}.")
-            self._siguiente_ronda_tipo()
+                print(f"❌ No, en realidad es una {correcto}.")
+
+        # Avanzar ronda
+        self.ronda_actual += 1
+        if self.ronda_actual < self.total_rondas:
+            time.sleep(0.8)
+            self.juegos[self.juego_en_curso]()
+        else:
+            print(f"🎉 ¡Has completado el minijuego! Ganaste {self.estrellas} estrellas 🌟")
+            if hasattr(self.state, "gestor_juegos"):
+                self.state.gestor_juegos.registrar_resultado("frutas_verduras", self.juego_en_curso, self.estrellas)
+
 
     # ---------------------------------------------------
-    # RONDAS
+    # TRADUCTOR DE COMANDOS EN ESPAÑOL → MODELOS
     # ---------------------------------------------------
-    def _siguiente_ronda_adivina(self):
-        self.ronda += 1
-        if self.ronda > 3:
-            self._finalizar_juego()
-            return
+    def _traducir_a_modelo(self, texto_usuario):
+        texto = self.normalizar(texto_usuario)
 
+        traducciones = {
+            "MANZANA": "Apple",
+            "PLATANO": "Banana", "PLATANOS": "Banana", "BANANA": "Banana",
+            "ARANDANO": "Blueberry", "ARANDANOS": "Blueberry",
+            "CEREZA": "Cherry", "CEREZAS": "Cherry",
+            "UVA": "Grape", "UVAS": "Grape",
+            "KIWI": "Kiwi",
+            "LIMON": "Lemon", "LIMONES": "Lemon",
+            "MANGO": "Mango",
+            "MELON": "Melon", "MELONES": "Melon",
+            "NARANJA": "Orange", "NARANJAS": "Orange",
+            "PAPAYA": "Papaya",
+            "PERA": "Pear", "PERAS": "Pear",
+            "PINA": "Pineapple", "PINIA": "Pineapple",
+            "FRESA": "Strawberry", "FRESAS": "Strawberry",
+            "SANDIA": "Watermelon", "SANDIAS": "Watermelon",
+            "ZANAHORIA": "Carrot", "ZANAHORIAS": "Carrot",
+            "BROCOLI": "Broccoli",
+            "COLIFLOR": "Cauliflower",
+            "PEPINO": "Cucumber", "PEPINOS": "Cucumber",
+            "MAIZ": "Corn", "ELOTE": "Corn",
+            "GUISANTE": "Green_Peas", "GUISANTES": "Green_Peas",
+            "PUERRO": "Green_Leek", "PUERROS": "Green_Leek",
+            "CHAMPINON": "Mushroom", "CHAMPIÑON": "Mushroom",
+            "CEBOLLA": "Onion", "CEBOLLAS": "Onion",
+            "CALABAZA": "Pumpkin", "CALABAZAS": "Pumpkin",
+            "ESPINACA": "Spinach", "ESPINACAS": "Spinach",
+            "VERDURA": "Vegetable", "VERDURAS": "Vegetable"
+        }
+
+        return traducciones.get(texto, texto)
+
+
+    # ---------------------------------------------------
+    # MINIJUEGOS
+    # ---------------------------------------------------
+    def juego_adivina(self):
         self.alimento_actual = random.choice(self.alimentos)
+        self.respuesta_correcta = self.alimento_actual["nombre"]
+        self.modelos_a_mostrar.clear()
+        marker_id = random.choice(range(1, 13))
         categoria = "frutas" if self.alimento_actual["tipo"] == "fruta" else "verduras"
-        marker_id = random.choice([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
+        self.modelos_a_mostrar.append((categoria, self.alimento_actual["nombre"], marker_id))
 
-        self.modelos_a_mostrar.append(categoria, self.alimento_actual["nombre"], marker_id)
-        self.ui.mostrar_mensaje(f"🍏 Ronda {self.ronda}: ¿Qué alimento es este?")
+        print(f"🍏 Ronda {self.ronda_actual + 1}: ¿Qué alimento es este?")
         self.state.esperando_voz = True
 
-    def _siguiente_ronda_color(self):
-        self.ronda += 1
-        if self.ronda > 3:
-            self._finalizar_juego()
-            return
-
-        colores = ["rojo", "verde", "naranja", "amarillo", "morado"]
-        self.color_pedido = random.choice(colores)
+    def juego_color(self):
+        self.color_pedido = random.choice(["rojo", "verde", "naranja", "amarillo", "morado", "blanco", "marron"])
         self.opciones = random.sample(self.alimentos, 4)
+        self.modelos_a_mostrar.clear()
 
         for alimento in self.opciones:
+            marker_id = random.choice(range(1, 13))
             categoria = "frutas" if alimento["tipo"] == "fruta" else "verduras"
-            marker_id = random.choice([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
-            self.modelos_a_mostrar.append(categoria, alimento["nombre"], marker_id)
+            self.modelos_a_mostrar.append((categoria, alimento["nombre"], marker_id))
 
-        self.ui.mostrar_mensaje(f"🎨 ¿Qué alimentos son de color {self.color_pedido}?")
+        print(f"🎨 ¿Qué alimentos son de color {self.color_pedido}?")
         self.state.esperando_voz = True
 
-    def _siguiente_ronda_tipo(self):
-        self.ronda += 1
-        if self.ronda > 3:
-            self._finalizar_juego()
-            return
-
+    def juego_clasifica(self):
         self.alimento_actual = random.choice(self.alimentos)
+        self.respuesta_correcta = self.alimento_actual["tipo"]
+        self.modelos_a_mostrar.clear()
+        marker_id = random.choice(range(1, 13))
         categoria = "frutas" if self.alimento_actual["tipo"] == "fruta" else "verduras"
-        marker_id = random.choice([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
+        self.modelos_a_mostrar.append((categoria, self.alimento_actual["nombre"], marker_id))
 
-        self.modelos_a_mostrar.append(categoria, self.alimento_actual["nombre"], marker_id)
-        self.ui.mostrar_mensaje("🥦 ¿Es fruta o verdura?")
+        print("🥦 ¿Es fruta o verdura?")
         self.state.esperando_voz = True
-
-    # ---------------------------------------------------
-    # FINALIZAR JUEGO
-    # ---------------------------------------------------
-    def _finalizar_juego(self):
-        self.en_juego = False
-        estrellas = min(round((self.aciertos / 3) * 3), 3)
-        self.ui.mostrar_mensaje(f"🎉 ¡Juego terminado! Has conseguido {estrellas} estrellas ⭐ ({self.aciertos}/3 aciertos)")
-
-        if hasattr(self.state, "gestor_juegos") and self.state.gestor_juegos:
-            self.state.gestor_juegos.registrar_resultado("fruta_y_verdura", self.juego_actual, estrellas)
 
     # ---------------------------------------------------
     # UTILIDAD
     # ---------------------------------------------------
     def _nombre_visible(self, key):
-        """
-        Traduce los nombres internos al español para mostrar en mensajes.
-        """
         nombres = {
             "Apple": "manzana",
             "Banana": "plátano",
+            "Blueberry": "arándano",
+            "Cherry": "cereza",
+            "Grape": "uva",
+            "Kiwi": "kiwi",
+            "Lemon": "limón",
+            "Mango": "mango",
+            "Melon": "melón",
             "Orange": "naranja",
+            "Papaya": "papaya",
+            "Pear": "pera",
+            "Pineapple": "piña",
             "Strawberry": "fresa",
+            "Watermelon": "sandía",
             "Carrot": "zanahoria",
+            "Broccoli": "brócoli",
+            "Cauliflower": "coliflor",
             "Cucumber": "pepino",
-            "Tomato": "tomate",
+            "Corn": "maíz",
+            "Green_Peas": "guisantes",
+            "Green_Leek": "puerro",
+            "Mushroom": "champiñón",
+            "Onion": "cebolla",
+            "Pumpkin": "calabaza",
             "Spinach": "espinaca",
-            "Grape": "uva"
+            "Vegetable": "verdura"
         }
         return nombres.get(key, key)
