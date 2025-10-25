@@ -4,6 +4,7 @@ import cv2
 import time
 import threading
 import speech_recognition as sr
+from modules.data_manager import MongoDBManager
 
 # --- Configuración y AR ---
 from config.calibracion import cargar_calibracion
@@ -22,18 +23,30 @@ from models.modelos import rutas_frutas, rutas_letras, rutas_animales, rutas_ver
 
 
 def main():
-    print("\n🌈 Iniciando Kids&Veggies - Mundo de Luminia 🌟")
+    print("\n🌈 Iniciando Mundo de Luminia 🌟")
 
     # --- Estado global ---
+    mongo = MongoDBManager()
     state = GameState()
     escenas = {}
     voice_thread_active = [True]
+
+    # Conectar a MongoDB
+    try:
+        mongo.conectar()
+        print("Conexión a MongoDB establecida correctamente")
+    except Exception as e:
+        print(f"Error crítico al conectar con MongoDB: {e}")
+        return
 
     # --- Inicializar TTS ---
     try:
         tts_manager = TTSManager(
             on_talk_start=lambda: setattr(state, "microfono_listo", False),
-            on_talk_end=lambda: setattr(state, "microfono_listo", True)
+            on_talk_end=lambda: (
+                setattr(state, "microfono_listo", True),
+                setattr(state, "intro_terminada", True)
+            )
         )
         state.tts = tts_manager
 
@@ -81,8 +94,9 @@ def main():
 
     # --- Estado inicial ---
     state.fase = "inicio"
-    state.esperando_voz = True
-    state.microfono_listo = True
+    state.esperando_voz = False
+    state.microfono_listo = False
+    state.intro_terminada = False
 
     try:
         while True:
@@ -92,18 +106,22 @@ def main():
 
             # Render principal (UI + AR + Tina)
             frame = render_ui(frame, state, detector, cameraMatrix, distCoeffs, escenas, tts_manager)
-            cv2.imshow("Kids&Veggies - Luminia", frame)
+            cv2.imshow("- Luminia -", frame)
 
             # Salida manual
             if state.fase == "salir" or cv2.waitKey(1) == 27:
                 print("🛑 Cerrando aplicación...")
                 break
 
-            # Flujo inicial automatizado
             if state.fase == "inicio":
-                time.sleep(2)
-                tts_manager.announce("Vamos a comenzar con el reconocimiento facial.")
-                state.fase = "reconocimiento_facial"
+                if state.intro_terminada:
+                    tts_manager.announce("Vamos a comenzar con el reconocimiento facial.")
+                    state.intro_terminada = False
+                    state.esperando_voz = True
+                    state.microfono_listo = True
+                    state.fase = "reconocimiento_facial"
+
+
 
     except KeyboardInterrupt:
         print("\n🛑 Interrupción manual del usuario")
@@ -114,6 +132,7 @@ def main():
             tts_manager.stop()
         ar.release()
         cv2.destroyAllWindows()
+        mongo.desconectar()
         print("✅ Kids&Veggies cerrado correctamente")
 
 
