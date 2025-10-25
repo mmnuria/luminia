@@ -2,7 +2,7 @@ import random
 import time
 from models.modelos import obtener_ruta_por_categoria, rutas_letras
 from modules.ui_renderer import draw_text_with_background
-
+import unicodedata
 
 class MundoLetrasAR:
     """
@@ -29,7 +29,11 @@ class MundoLetrasAR:
         self.respuesta_correcta = None
 
         # Recursos del mundo
-        self.palabras = ["GATO", "LUNA", "MESA", "ROSA", "SOL", "CASA"]
+        self.palabras = ["GATO", "LUNA", "MESA", "ROSA", "SOL", "CASA",
+                        "PERRO", "NUBE", "ARCO", "FLOR", "CIELO", "SILLA",
+                        "LIBRO", "ESTRELLA", "AVION", "FRUTA", "ZAPATO", "PEZ",
+                        "CAMION", "ARBOL", "VENTANA", "ESPEJO", "CAMA", "BALON",
+                        "MANO", "OJO", "CORAZON", "CONEJO", "LEON", "TORO"]
 
     # ---------------------------------------------------
     # MÉTODO AUXILIAR: mostrar mensaje en pantalla
@@ -44,16 +48,25 @@ class MundoLetrasAR:
             print(f"[MundoLetrasAR] {texto}")  # fallback por consola si no hay frame
 
     # ---------------------------------------------------
+    # MÉTODO AUXILIAR: normalizar texto (quitando tildes, mayúsculas y espacios)
+    # ---------------------------------------------------
+    def normalizar(self, texto):
+        texto = texto.upper()
+        texto = ''.join(c for c in unicodedata.normalize('NFD', texto) 
+                        if unicodedata.category(c) != 'Mn')  # quita tildes
+        return texto.replace(" ", "")
+
+    # ---------------------------------------------------
     # FASE DE INICIO DEL MUNDO
     # ---------------------------------------------------
     def iniciar(self):
         """
         Inicia el mundo, muestra introducción y opciones.
         """
-        self.mostrar_mensaje("📖 Bienvenido al 🌈 Mundo de las Letras 🌈")
-        self.mostrar_mensaje("Aquí aprenderás jugando con las letras mágicas del alfabeto.", pos=(50, 100))
-        self.mostrar_mensaje("Puedes decir: 'adivina', 'memoria' o 'secuencia' para comenzar un minijuego.", pos=(50, 140))
-        self.mostrar_mensaje("O di 'salir' para regresar al menú principal.", pos=(50, 180))
+        print("📖 Bienvenido al 🌈 Mundo de las Letras 🌈")
+        print("Aquí aprenderás jugando con las letras mágicas del alfabeto.")
+        print("Puedes decir: 'adivina', 'memoria' o 'secuencia' para comenzar un minijuego.")
+        print("O di 'salir' para regresar al menú principal.")
         self.state.fase = "mundo_letras"
 
     # ---------------------------------------------------
@@ -69,7 +82,7 @@ class MundoLetrasAR:
 
         tipo = tipo.lower()
         if tipo not in self.juegos:
-            self.mostrar_mensaje("⚠️ No conozco ese minijuego. Prueba con 'adivina', 'memoria' o 'secuencia'.")
+            print("⚠️ No conozco ese minijuego. Prueba con 'adivina', 'memoria' o 'secuencia'.")
             return
 
         self.estrellas = 0
@@ -77,7 +90,11 @@ class MundoLetrasAR:
         self.juego_en_curso = tipo
         self.state.fase = "jugando"
 
-        self.mostrar_mensaje(f"🌟 ¡Comienza el minijuego {tipo.upper()}! 🌟")
+         # ✨ Seleccionar palabras únicas si es secuencia
+        if tipo == "secuencia":
+            self.palabras_seleccionadas = random.sample(self.palabras, self.total_rondas)
+
+        print(f"🌟 ¡Comienza el minijuego {tipo.upper()}! 🌟")
         time.sleep(0.5)
         self.juegos[tipo]()
 
@@ -89,35 +106,46 @@ class MundoLetrasAR:
         Procesa los comandos o respuestas habladas del jugador.
         """
         if not self.juego_en_curso:
-            self.mostrar_mensaje("🎮 Di 'adivina', 'memoria' o 'secuencia' para iniciar un minijuego.")
+            print("🎮 Di 'adivina', 'memoria' o 'secuencia' para iniciar un minijuego.")
             return
 
         comando = comando.strip().upper()
         print(f"[MundoLetrasAR] Comando recibido: {comando}")
 
-        # Comparar respuesta
-        if comando == self.respuesta_correcta or comando.replace(" ", "") == self.respuesta_correcta.replace(" ", ""):
-            self.mostrar_mensaje("✅ ¡Muy bien! Has acertado.")
+        # Quitar prefijos
+        if comando.startswith("LETRA "):
+            comando = comando[6:].strip()
+        elif comando.startswith("LETRAS "):
+            comando = comando[7:].strip()
+
+        # Separar letras si vienen juntas (ej: "UCS" → ["U", "C", "S"])
+        comando_letras = list(comando.replace(" ", ""))
+        respuesta_letras = list(self.respuesta_correcta.replace(" ", ""))
+
+        # Comparar secuencia
+        if comando_letras == respuesta_letras:
+            print("✅ ¡Muy bien! Has acertado.")
             self.estrellas += 1
         else:
-            self.mostrar_mensaje(f"❌ No era '{comando}'. La respuesta correcta era '{self.respuesta_correcta}'.")
+            print(f"❌ No era '{comando}'. La respuesta correcta era '{self.respuesta_correcta}'.")
 
         # Avanzar ronda
         self.ronda_actual += 1
         if self.ronda_actual < self.total_rondas:
-            self.mostrar_mensaje(f"⭐ Vamos con la ronda {self.ronda_actual + 1}...", pos=(50, 100))
+            print(f"⭐ Vamos con la ronda {self.ronda_actual + 1}...")
             time.sleep(0.8)
             self.juegos[self.juego_en_curso]()
         else:
+            self.modelos_a_mostrar = []
             # Termina minijuego
-            self.mostrar_mensaje("🎉 ¡Has completado el minijuego!", pos=(50, 100))
-            self.mostrar_mensaje(f"Ganaste {self.estrellas} estrellas 🌟", pos=(50, 140))
+            print("🎉 ¡Has completado el minijuego!")
+            print(f"Ganaste {self.estrellas} estrellas 🌟")
 
             # Registrar resultados y volver al menú principal
             if hasattr(self.state, "gestor_juegos"):
                 self.state.gestor_juegos.registrar_resultado("letras", self.juego_en_curso, self.estrellas)
             else:
-                self.mostrar_mensaje("⚠️ No se pudo registrar el progreso (gestor no disponible).", pos=(50, 180))
+                print("⚠️ No se pudo registrar el progreso (gestor no disponible).")
 
     # ---------------------------------------------------
     # MINIJUEGOS
@@ -127,43 +155,47 @@ class MundoLetrasAR:
         """
         Muestra tres letras aleatorias y pide decir la correcta.
         """
-        letras = random.sample(list(rutas_letras.keys()), 3)
+        self.modelos_a_mostrar = []
+        letras = random.sample(list(rutas_letras.keys()), 1)
         self.respuesta_correcta = random.choice(letras)
 
-        self.mostrar_mensaje(f"🔤 Letras mágicas aparecieron: {', '.join(letras)}", pos=(50, 60))
-        self.mostrar_mensaje("Tina: 'Dime cuál de estas letras ves flotando sobre la mesa mágica.'", pos=(50, 100))
-
-        self.modelos_a_mostrar = []
+        print(f"🔤 Letras mágicas aparecieron: {', '.join(letras)}")
+        print("Tina: 'Dime la respuesta diciendo: Letra A, Letra B, etc.'")
+        
         for letra in letras:
             marker_id = random.choice([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
-            self.modelos_a_mostrar.append(("letras", letra, marker_id))
+            self.modelos_a_mostrar.append(("letras", letra.upper(), marker_id))
+            time.sleep(4)
 
     def juego_memoria_letras(self):
         """
         Muestra una secuencia de letras que el jugador debe recordar.
         """
+        self.modelos_a_mostrar = []
         secuencia = random.sample(list(rutas_letras.keys()), 3)
         self.respuesta_correcta = " ".join(secuencia)
 
-        self.mostrar_mensaje("✨ Observa con atención las letras mágicas...", pos=(50, 60))
+        print("✨ Observa con atención las letras mágicas...")
+        print("Tina: 'Di las letras en orden diciendo: Letras A B C ...'")
+        
         for letra in secuencia:
-            self.mostrar_mensaje(f"💡 {letra}", pos=(50, 100))
+            print(f"💡 {letra}")
             marker_id = random.choice([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
-            self.modelos_a_mostrar.append(("letras", letra, marker_id))
-            time.sleep(0.8)
-
-        self.mostrar_mensaje("Tina: '¿En qué orden se encendieron? Di las letras separadas por espacio.'", pos=(50, 140))
+            self.modelos_a_mostrar.append(("letras", letra.upper(), marker_id))
+            time.sleep(4)
 
     def juego_secuencia_palabra(self):
         """
         Pide formar una palabra letra por letra.
         """
-        palabra = random.choice(self.palabras)
+        self.modelos_a_mostrar = []
+        palabra = self.palabras_seleccionadas[self.ronda_actual]
         self.respuesta_correcta = " ".join(list(palabra))
 
-        self.mostrar_mensaje(f"Tina: 'Vamos a formar la palabra {palabra}. Di las letras en orden.'", pos=(50, 60))
-        self.mostrar_mensaje("Ejemplo: G A T O", pos=(50, 100))
+        print(f"Tina: 'Vamos a formar la palabra {palabra}. Di las letras en orden.'")
 
+        time.sleep(2)
         for letra in palabra:
             marker_id = random.choice([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
-            self.modelos_a_mostrar.append(("letras", letra, marker_id))
+            self.modelos_a_mostrar.append(("letras", letra.upper(), marker_id))
+            time.sleep(2)
