@@ -1,12 +1,14 @@
 import random
 import time
 from models.modelos import rutas_animales, obtener_ruta_por_categoria
+from modules.ui_renderer import draw_text_with_background
+import unicodedata
 
 
 class MundoAnimalesAR:
     """
     🌿 Mundo de los Animales — descubre las criaturas mágicas de Luminia.
-    Incluye los minijuegos: adivina, sonido y clasificación.
+    Incluye los minijuegos: adivina, sonido y clasificar.
     """
 
     def __init__(self, ui_renderer, voice_system, game_state):
@@ -18,7 +20,7 @@ class MundoAnimalesAR:
         self.juegos = {
             "adivina": self.juego_adivina_animal,
             "sonido": self.juego_sonido_misterioso,
-            "clasificacion": self.juego_clasificacion_animal
+            "clasificar": self.juego_clasificacion_animal
         }
 
         self.estrellas = 0
@@ -28,34 +30,99 @@ class MundoAnimalesAR:
         self.respuesta_correcta = None
 
         self.animales = {
-            "Cow": "mugido",       # vaca
-            "Dog": "ladrido",      # perro
-            "Cat": "maullido",     # gato
-            "Penguin": "canto",    # pingüino
-            "Fishbowl": "ninguno", # pez
-            "Bird": "canto",       # pájaro
-            "Frog": "croar",       # rana
+            "Cow": "mugido",
+            "Dog": "ladrido",
+            "Cat": "maullido",
+            "Penguin": "canto",
+            "Fishbowl": "ninguno",
+            "Bird": "canto",
+            "Frog": "croar",
+            "BowheadWhale": "canto",
+            "Harp_Seal": "gruñido",
+            "Horse": "relincho",
+            "Pig": "gruñido",
+            "Sheep": "balido",
+            "Hamster": "chirrido",
+            "Reindeer": "gruñido",
+            "Snail": "silencio",
+            "Chicken": "cloqueo",
+            "Bee": "zumbido",
+            "Butterfly": "silencio",
+            "Snowy_Owls": "ulular"
         }
 
-        self.animales_acuaticos = ["Fishbowl", "BowheadWhale", "Harp_Seal"]
+    def mostrar_mensaje(self, texto, pos=(50, 60), color=(255, 255, 255), bg_color=(56, 118, 29), font_scale=0.7):
+        if hasattr(self.state, "frame_actual") and self.state.frame_actual is not None:
+            draw_text_with_background(self.state.frame_actual, texto, pos, font_scale, color, bg_color)
+        else:
+            print(f"[MundoLetrasAR] {texto}")
 
-    # ---------------------------------------------------
-    # INICIO DEL MUNDO
-    # ---------------------------------------------------
+    def normalizar(self, texto):
+        if texto is None:
+            return ""
+        texto = str(texto).upper()
+        texto = ''.join(c for c in unicodedata.normalize('NFD', texto) if unicodedata.category(c) != 'Mn')
+        return texto.replace(" ", "")
+
+    def _traducir_a_modelo(self, texto_usuario):
+        clave = self.normalizar(texto_usuario)
+
+        mapeo = {
+            self.normalizar("vaca"): "Cow",
+            self.normalizar("perro"): "Dog",
+            self.normalizar("gato"): "Cat",
+            self.normalizar("caballo"): "Horse",
+            self.normalizar("cerdo"): "Pig",
+            self.normalizar("oveja"): "Sheep",
+            self.normalizar("hámster"): "Hamster",
+            self.normalizar("hamster"): "Hamster",
+            self.normalizar("reno"): "Reindeer",
+            self.normalizar("ciervo"): "Reindeer",
+            self.normalizar("caracol"): "Snail",
+            self.normalizar("conejo"): "Rabbit",
+            self.normalizar("pollo"): "Chicken",
+            self.normalizar("ballena"): "BowheadWhale",
+            self.normalizar("foca"): "Harp_Seal",
+            self.normalizar("pingüino"): "Penguin",
+            self.normalizar("pinguino"): "Penguin",
+            self.normalizar("pajaro"): "Bird",
+            self.normalizar("pájaro"): "Bird",
+            self.normalizar("ave"): "Bird",
+            self.normalizar("abeja"): "Bee",
+            self.normalizar("mariposa"): "Butterfly",
+            self.normalizar("buho"): "Snowy_Owls",
+            self.normalizar("búho"): "Snowy_Owls",
+
+            # Nuevos animales
+            self.normalizar("beluga"): "Beluga_Whale",
+            self.normalizar("cangrejo"): "Crab",
+            self.normalizar("medusa"): "Jellyfish",
+            self.normalizar("concha"): "Seashell",
+            self.normalizar("estrella de mar"): "Starfish",
+            self.normalizar("pez"): "Fish",
+            self.normalizar("pescado"): "Fish",
+        }
+
+
+        clave_ing = self.normalizar(texto_usuario)
+        if clave_ing in [self.normalizar(k) for k in self.animales.keys()]:
+            for k in self.animales.keys():
+                if self.normalizar(k) == clave_ing:
+                    return k
+
+        return mapeo.get(clave, None)
+
     def iniciar(self):
-        self.ui.mostrar_mensaje("🐾 Bienvenido al Mundo de los Animales.")
-        self.ui.mostrar_mensaje("Aquí conocerás a las criaturas mágicas de Luminia.")
-        self.ui.mostrar_mensaje("Puedes decir: 'adivina', 'sonido' o 'clasificación' para comenzar un minijuego.")
-        self.ui.mostrar_mensaje("O di 'salir' para regresar al menú principal.")
+        print("🐾 Bienvenido al Mundo de los Animales.")
+        print("Aquí conocerás a las criaturas mágicas de Luminia.")
+        print("Puedes decir: 'adivina', 'sonido' o 'clasificar' para comenzar un minijuego.")
+        print("O di 'salir' para regresar al menú principal.")
         self.state.fase = "mundo_animales"
 
-    # ---------------------------------------------------
-    # INICIO DE MINIJUEGO
-    # ---------------------------------------------------
     def iniciar_juego(self, tipo):
         tipo = tipo.lower()
         if tipo not in self.juegos:
-            self.ui.mostrar_mensaje("⚠️ No conozco ese minijuego. Prueba con 'adivina', 'sonido' o 'clasificación'.")
+            print("⚠️ No conozco ese minijuego. Prueba con 'adivina', 'sonido' o 'clasificar'.")
             return
 
         self.estrellas = 0
@@ -63,120 +130,131 @@ class MundoAnimalesAR:
         self.juego_en_curso = tipo
         self.state.fase = "jugando"
 
-        self.ui.mostrar_mensaje(f"🌟 ¡Comienza el minijuego {tipo.upper()}! 🌟")
+        print(f"🌟 ¡Comienza el minijuego {tipo.upper()}! 🌟")
         time.sleep(0.5)
         self.juegos[tipo]()
 
-    # ---------------------------------------------------
-    # PROCESAMIENTO DE COMANDOS
-    # ---------------------------------------------------
     def procesar_comando(self, comando):
         if not self.juego_en_curso:
-            self.ui.mostrar_mensaje("🎮 Di 'adivina', 'sonido' o 'clasificación' para iniciar un minijuego.")
+            print("🎮 Di 'adivina', 'sonido' o 'clasificación' para iniciar un minijuego.")
             return
 
-        comando = comando.strip().lower()
+        comando_traducido = self._traducir_a_modelo(comando)
+        comparable = self.normalizar(comando_traducido if comando_traducido else comando)
+        respuesta_normalizada = self.normalizar(self.respuesta_correcta)
 
-        traducciones = {
-            "vaca": "Cow",
-            "perro": "Dog",
-            "gato": "Cat",
-            "pingüino": "Penguin",
-            "pinguino": "Penguin",
-            "pez": "Fishbowl",
-            "pájaro": "Bird",
-            "pajaro": "Bird",
-            "rana": "Frog",
-            "ballena": "BowheadWhale",
-            "foca": "Harp_Seal"
-        }
-        comando_traducido = traducciones.get(comando, comando)
-
-        if comando_traducido == self.respuesta_correcta:
-            self.ui.mostrar_mensaje("✅ ¡Muy bien! Has acertado.")
+        if comparable == respuesta_normalizada:
+            print("✅ ¡Muy bien! Has acertado.")
             self.estrellas += 1
         else:
-            self.ui.mostrar_mensaje(f"❌ No era '{comando}'. La respuesta correcta era '{self.respuesta_correcta}'.")
+            nombre_correcto_visible = self._nombre_visible(self.respuesta_correcta)
+            print(f"❌ No era '{comando}'. La respuesta correcta era '{nombre_correcto_visible}' ({self.respuesta_correcta}).")
 
-        # Siguiente ronda o fin
         self.ronda_actual += 1
         if self.ronda_actual < self.total_rondas:
-            self.ui.mostrar_mensaje(f"⭐ Vamos con la ronda {self.ronda_actual + 1}...")
+            print(f"⭐ Vamos con la ronda {self.ronda_actual + 1}...")
             time.sleep(0.8)
             self.juegos[self.juego_en_curso]()
         else:
-            self.ui.mostrar_mensaje("🎉 ¡Has completado el minijuego!")
-            self.ui.mostrar_mensaje(f"Ganaste {self.estrellas} estrellas 🌟")
+            print("🎉 ¡Has completado el minijuego!")
+            print(f"Ganaste {self.estrellas} estrellas 🌟")
             if hasattr(self.state, "gestor_juegos"):
                 self.state.gestor_juegos.registrar_resultado("animales", self.juego_en_curso, self.estrellas)
 
-    # ---------------------------------------------------
-    # MINIJUEGOS
-    # ---------------------------------------------------
-
     def juego_adivina_animal(self):
-        """
-        Muestra tres animales y pide identificar el correcto.
-        """
-        opciones = random.sample(list(rutas_animales.keys()), 3)
+        opciones = random.sample(list(rutas_animales.keys()), 1)
         self.respuesta_correcta = random.choice(opciones)
 
-        nombres_visibles = [self._nombre_visible(a) for a in opciones]
-        self.ui.mostrar_mensaje(f"🦁 Aparecen los animales: {', '.join(nombres_visibles)}")
-        self.ui.mostrar_mensaje("Tina: '¿Qué animal ves sobre la mesa mágica?'")
+        print("Tina: '¿Qué animal ves sobre la mesa mágica?'")
 
+        self.modelos_a_mostrar = []
         for animal in opciones:
-            marker_id = random.choice([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
+            marker_id = random.randint(1, 12)
             self.modelos_a_mostrar.append(("animales", animal, marker_id))
 
     def juego_sonido_misterioso(self):
-        """
-        Reproduce un sonido y pide identificar al animal.
-        """
         animal, sonido = random.choice(list(self.animales.items()))
         self.respuesta_correcta = animal
 
-        self.ui.mostrar_mensaje("🔊 Escucha con atención...")
+        print("🔊 Escucha con atención...")
         time.sleep(1)
-        self.ui.mostrar_mensaje(f"🔉 (Se reproduce un {sonido})")
-        self.ui.mostrar_mensaje("Tina: '¿Qué animal hace ese sonido?'")
+        print(f"🔉 (Se reproduce un {sonido})")
+        print("Tina: '¿Qué animal hace ese sonido?'")
 
-        marker_id = random.choice([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
+        self.modelos_a_mostrar = []
+        marker_id = random.randint(1, 12)
         self.modelos_a_mostrar.append(("animales", animal, marker_id))
 
     def juego_clasificacion_animal(self):
-        """
-        Pide seleccionar qué animal vive en el agua.
-        """
-        opciones = random.sample(list(rutas_animales.keys()), 4)
-        correctos = [a for a in opciones if a in self.animales_acuaticos]
+        animales_terrestres = [
+            "Cat", "Dog", "Horse", "Cow", "Pig", "Sheep", "Hamster", "Reindeer", "Snail", "Chicken"
+        ]
 
-        self.respuesta_correcta = random.choice(correctos) if correctos else random.choice(opciones)
+        animales_acuaticos = [
+            "BowheadWhale", "Harp_Seal", "Penguin", "Beluga_Whale", "Fish", "Crab", "Jellyfish", "Seashell", "Starfish"
+        ]
+
+        animales_voladores = [
+            "Bird", "Bee", "Butterfly", "Snowy_Owls"
+    ]
+
+
+        # Para asegurar variedad, mezclamos animales de otras categorías como distractores
+        todos_los_animales = animales_terrestres + animales_acuaticos + animales_voladores
+
+        if self.ronda_actual == 0:
+            lista_correctos = animales_terrestres
+            mensaje = "🌍 Selecciona el animal que vive en tierra."
+        elif self.ronda_actual == 1:
+            lista_correctos = animales_acuaticos
+            mensaje = "🌊 Selecciona el animal que vive en el agua."
+        else:
+            lista_correctos = animales_voladores
+            mensaje = "🌬️ Selecciona el animal que puede volar."
+
+        correcto = random.choice(lista_correctos)
+        distractores = [a for a in todos_los_animales if a not in lista_correctos]
+        opciones = [correcto] + random.sample(distractores, 3)
+        random.shuffle(opciones)
+
+        self.respuesta_correcta = correcto
+
         nombres_visibles = [self._nombre_visible(a) for a in opciones]
+        print(f"{mensaje} Aparecen: {', '.join(nombres_visibles)}")
 
-        self.ui.mostrar_mensaje(f"🌍 Aparecen los animales: {', '.join(nombres_visibles)}")
-        self.ui.mostrar_mensaje("Tina: '¿Cuál de estos animales vive en el agua?'")
-
-        for animal in opciones:
-            marker_id = random.choice([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
+        self.modelos_a_mostrar = []
+        marcadores_usados = random.sample(range(1, 13), len(opciones))
+        for animal, marker_id in zip(opciones, marcadores_usados):
             self.modelos_a_mostrar.append(("animales", animal, marker_id))
 
-    # ---------------------------------------------------
-    # UTILIDAD INTERNA
-    # ---------------------------------------------------
     def _nombre_visible(self, key):
-        """
-        Traduce claves de modelo a nombres legibles para mensajes.
-        """
         nombres = {
             "Cow": "vaca",
             "Dog": "perro",
             "Cat": "gato",
             "Penguin": "pingüino",
             "Fishbowl": "pez",
+            "Fish": "pez pequeño",
             "Bird": "pájaro",
             "Frog": "rana",
             "BowheadWhale": "ballena",
-            "Harp_Seal": "foca"
+            "Beluga_Whale": "beluga",
+            "Harp_Seal": "foca",
+            "Bee": "abeja",
+            "Butterfly": "mariposa",
+            "Snowy_Owls": "búhos",
+            "Horse": "caballo",
+            "Reindeer": "reno",
+            "Pig": "cerdo",
+            "Sheep": "oveja",
+            "Rabbit": "conejo",
+            "Snail": "caracol",
+            "Chicken": "pollo",
+            "Hamster": "hámster",
+            "Crab": "cangrejo",
+            "Jellyfish": "medusa",
+            "Seashell": "concha",
+            "Starfish": "estrella de mar"
         }
         return nombres.get(key, key)
+
