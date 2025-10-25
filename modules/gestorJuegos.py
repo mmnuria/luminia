@@ -1,6 +1,12 @@
 import importlib
 from modules.game_state import GameState
+from modules.mundos.mundo_letras import MundoLetrasAR
+from modules.mundos.mundo_animales import MundoAnimalesAR
+from modules.mundos.mundo_fruta_verdura import MundoFrutayverduraAR
+from modules.mundos.mundo_numeros import MundoNumerosAR
+from modules.data_manager import MongoDBManager
 
+mongo = MongoDBManager()
 
 class GestorJuegosAR:
     """
@@ -60,12 +66,26 @@ class GestorJuegosAR:
     # ----------------------------------------------------------
     def _manejar_eleccion_mundo(self, comando):
         if comando in self.mundos_disponibles:
-            if self.state.mundo_desbloqueado(comando):
-                self._cargar_mundo(comando)
+            # El _id del usuario ya está en GameState
+            if self.state.usuario_actual:
+                nombre_usuario = self.state.usuario_actual  # string / _id en MongoDB
+
+                # Usamos las funciones de data_manager
+                mundos = mongo.mundos_desbloqueados_usuario(nombre_usuario)
+
+                if mundos.get(comando, True):
+                    self._cargar_mundo(comando)
+                else:
+                    self._mostrar(
+                        "🚫 Todavía no has desbloqueado este mundo. ¡Consigue más estrellas para avanzar! ⭐"
+                    )
             else:
-                self._mostrar("🚫 Todavía no has desbloqueado este mundo. ¡Consigue más estrellas para avanzar! ⭐")
+                self._mostrar("⚠️ Usuario no definido o no encontrado en la base de datos.")
         else:
-            self._mostrar("❌ Mundo no reconocido. Di: letras, animales, frutas y verduras, números o final.")
+            self._mostrar(
+                "❌ Mundo no reconocido. Di: letras, animales, frutas y verduras, números o final."
+            )
+
 
     def _cargar_mundo(self, nombre_mundo):
         modulo_nombre = self.mundos_disponibles[nombre_mundo]
@@ -74,13 +94,24 @@ class GestorJuegosAR:
             clase_nombre = f"Mundo{nombre_mundo.replace('_', '').capitalize()}AR"
             clase_mundo = getattr(modulo, clase_nombre)
 
-            self.mundo_actual = clase_mundo(self.ui_renderer, self.voice_system, self.state)
+            # Crear instancia del mundo
+            instancia = clase_mundo(self.ui_renderer, self.voice_system, self.state)
+
+            # Guardar en el estado global (para que realidad_mixta lo encuentre)
+            setattr(self.state, f"instancia_mundo_{nombre_mundo}", instancia)
+
+            # Establecer fase y mundo actual
+            self.mundo_actual = instancia
             self.state.establecer_fase(f"mundo_{nombre_mundo}", mundo=nombre_mundo)
 
             self._mostrar(f"🌈 Entrando al Mundo de las {nombre_mundo.replace('_', ' ').capitalize()}...")
-            self.mundo_actual.iniciar()
+            instancia.iniciar()
+
+            print(f"[GestorJuegosAR] ✅ Mundo '{nombre_mundo}' cargado y guardado en GameState.")
+
         except Exception as e:
             self._mostrar(f"⚠️ Error al cargar el mundo {nombre_mundo}: {e}")
+
 
     # ----------------------------------------------------------
     # MANEJO DE MINIJUEGOS
@@ -89,8 +120,8 @@ class GestorJuegosAR:
         comando = comando.lower().strip()
         juegos_validos = [
             "adivina", "memoria", "secuencia",
-            "reto", "desafio", "desafío",
-            "sonido", "clasificacion", "contar", "suma", "mayor"
+            "contar", "deletreo",
+            "sonido", "clasificar","adivina", "suma", "mayor", "color", "clasifica"
         ]
 
         if comando in juegos_validos:
@@ -101,14 +132,26 @@ class GestorJuegosAR:
             self._mostrar("🎮 Comando no reconocido. Prueba con los minijuegos disponibles en este mundo.")
 
     def _iniciar_minijuego(self, tipo_juego):
+        # Si no hay un mundo actual, lo creamos en función del tipo
         if not self.mundo_actual:
-            self._mostrar("⚠️ No hay un mundo activo actualmente.")
-            return
+            if tipo_juego == "letras":
+                self.mundo_actual = MundoLetrasAR(self.state)
+            elif tipo_juego == "animales":
+                self.mundo_actual = MundoAnimalesAR(self.state)
+            elif tipo_juego in ["frutas", "verduras"]:
+                self.mundo_actual = MundoFrutayverduraAR(self.state)
+            elif tipo_juego == "numeros":
+                self.mundo_actual = MundoNumerosAR(self.state)
+            else:
+                self._mostrar(f"⚠️ No se reconoce el tipo de juego: {tipo_juego}")
+                return
 
+        # Cambiamos la fase del estado global
         self.state.establecer_fase("jugando", minijuego=tipo_juego)
         self.juego_actual = tipo_juego
 
         self._mostrar(f"🎯 Iniciando minijuego: {tipo_juego.title()}...")
+
         try:
             self.mundo_actual.iniciar_juego(tipo_juego)
         except Exception as e:
@@ -131,8 +174,9 @@ class GestorJuegosAR:
         self.state.registrar_resultado(mundo, minijuego, estrellas)
 
         total_categoria = sum(
-            j["estrellas"] for j in self.state.obtener_progreso(mundo).values()
+            v for k, v in self.state.obtener_progreso(mundo).items() if k != "total_estrellas"
         )
+
         total_general = self.state.usuario_data["estrellas_totales"]
 
         self._mostrar(f"✨ Has ganado {estrellas} estrellas en '{minijuego}' del mundo {mundo.capitalize()}!")
