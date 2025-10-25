@@ -11,7 +11,10 @@ from utils.conversiones import from_opencv_to_pygfx
 from modules.cuia import alphaBlending
 from modules.game_state import FACE_CASCADE
 
+from modules.usuarios import Usuario
+from modules.data_manager import MongoDBManager
 
+mongo = MongoDBManager()
 # ---------------------------------------------------
 # Funciones auxiliares
 # ---------------------------------------------------
@@ -74,13 +77,13 @@ def realidad_mixta(frame, detector, cameraMatrix, distCoeffs, state, escenas):
     """
     Renderiza los modelos 3D sobre los marcadores según el estado actual.
     """
-    ret, pose = detectar_pose(frame, 0.19, detector, cameraMatrix, distCoeffs)
+    ret, pose = detectar_pose(frame, 0.18, detector, cameraMatrix, distCoeffs)
     marcadores_actuales = set(pose.keys()) if ret and pose else set()
 
     # ---------------------------------------------------
     # Siempre mostrar Tina en marcador 0
     # ---------------------------------------------------
-    if 0 in marcadores_actuales:
+    if 0 in marcadores_actuales and state.fase != "jugando":
         if 0 not in escenas:
             ruta_tina = obtener_ruta_por_categoria("mascota", "tina_unicornio")
             modelo = crear_modelo(ruta_tina)
@@ -129,6 +132,7 @@ def realidad_mixta(frame, detector, cameraMatrix, distCoeffs, state, escenas):
             draw_text_with_background(frame, "Mira a la cámara para comenzar", (50, 50),
                                       color=(255, 255, 255), bg_color=(100, 100, 100))
             state.cara_detectada = False
+        
         return frame
 
     # ---------------------------------------------------
@@ -142,6 +146,26 @@ def realidad_mixta(frame, detector, cameraMatrix, distCoeffs, state, escenas):
         draw_text_with_background(frame, "Di: letras, animales, frutas y verduras, números o final", (50, 140),
                                   color=(255, 255, 255), bg_color=(0, 0, 100))
 
+        # Mostrar lumios y estrellas_totales del usuario salvo en fases "inicio" y "reconocimiento_facial"
+        if hasattr(state, "fase") and state.fase not in ["inicio", "reconocimiento_facial"]:
+            if hasattr(state, "usuario_actual") and state.usuario_actual:
+                nombre_usuario = str(state.usuario_actual)  # Asumimos que es el _id o nombre del usuario
+
+                # Obtener datos directamente desde MongoDB
+                lumios = mongo.obtener_lumios(nombre_usuario)
+                estrellas = int(mongo.obtener_estrellas(nombre_usuario))
+                nombre = mongo.obtener_nombre(nombre_usuario)
+
+                texto = f"💰 {lumios}   ✨ {estrellas}"
+                (h, w) = frame.shape[:2]
+                pos_x = w - 250  # 250 px desde la derecha
+                pos_y = 30       # 30 px desde arriba
+                draw_text_with_background(frame, texto, (pos_x, pos_y),
+                                        color=(255, 255, 255), bg_color=(50, 50, 50, 200))
+            else:
+                print("[ui_renderer] Advertencia: no hay usuario definido")
+
+        
         # Mostrar los castillos en los marcadores configurados
         marcadores_castillos = state.marcadores_castillos if hasattr(state, "marcadores_castillos") else {
             1: "letras", 3: "animales", 4: "fruta_y_verdura", 6: "numeros", 11: "final"
@@ -160,6 +184,8 @@ def realidad_mixta(frame, detector, cameraMatrix, distCoeffs, state, escenas):
                     imagen_render = escenas[marker_id].render()
                     imagen_render_bgr = cv2.cvtColor(imagen_render, cv2.COLOR_RGBA2BGRA)
                     frame = alphaBlending(imagen_render_bgr, frame)
+        
+        
         return frame
 
     # ---------------------------------------------------
@@ -198,6 +224,14 @@ def realidad_mixta(frame, detector, cameraMatrix, distCoeffs, state, escenas):
         mundo_activo = getattr(state, f"instancia_mundo_{state.mundo_actual}", None)
 
         if mundo_activo:
+            # --- LIMPIAR ESCENAS DE MUNDOS ANTERIORES ---
+            modelos_actuales = [m[2] for m in getattr(mundo_activo, "modelos_a_mostrar", [])]
+            for marker_id in list(escenas.keys()):
+                if marker_id not in modelos_actuales:
+                    escenas.pop(marker_id)
+            
+            pose = pose or {}
+            
             for categoria, nombre_modelo, marker_id in getattr(mundo_activo, "modelos_a_mostrar", []):
                 if marker_id not in escenas:
                     ruta = obtener_ruta_por_categoria(categoria, nombre_modelo)
