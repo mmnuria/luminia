@@ -138,31 +138,43 @@ def realidad_mixta(frame, detector, cameraMatrix, distCoeffs, state, escenas):
     # Siempre mostrar Tina en marcador 0
     # ---------------------------------------------------
     if 0 in marcadores_actuales and state.fase != "jugando":
-        if 0 not in escenas:
-            # Valor por defecto
-            equipado = "tina_unicornio"
+        # Valor por defecto
+        equipado = "tina_unicornio"
 
+        # Preferir lo que está en state.datos_disfraces si existe
+        if getattr(state, "datos_disfraces", None):
+            equipado = state.datos_disfraces.get("equipado", "tina_unicornio")
+        else:
+            # Fallback: leer desde DB
             if state.usuario_actual:
                 datos_usuario = mongo.obtener_datos_usuario(state.usuario_actual)
                 disfraces = datos_usuario.get("disfraces", {})
                 if disfraces:
                     equipado_db = disfraces.get("equipado")
                     if equipado_db and isinstance(equipado_db, str):
-                        # Normalizar usando las claves exactas de traduccion_mascotas
+                        # Normalizar usando traduccion_mascotas
                         if equipado_db in traduccion_mascotas:
                             equipado = equipado_db
                         else:
-                            # Intentar buscar sin distinguir mayúsculas/minúsculas
                             for clave in traduccion_mascotas.keys():
                                 if clave.lower() == equipado_db.lower():
                                     equipado = clave
                                     break
 
-            # Cargar la ruta correspondiente del disfraz equipado
+        # Verificar si ya existe el modelo en escenas[0]
+        recargar_modelo = True
+        if 0 in escenas:
+            nombre_actual = getattr(escenas[0], "nombre_disfraz", None)
+            if nombre_actual == equipado:
+                recargar_modelo = False
+
+        # Cargar o recargar el modelo 3D si es necesario
+        if recargar_modelo:
             ruta_tina = obtener_ruta_por_categoria("mascota", equipado)
             if ruta_tina:
                 modelo = crear_modelo(ruta_tina)
                 escenas[0] = crear_escena(modelo, cameraMatrix, frame.shape[1], frame.shape[0])
+                escenas[0].nombre_disfraz = equipado  # Guardamos el nombre para futuras comparaciones
             else:
                 print(f"[UIRenderer] ⚠️ No se encontró ruta para disfraz '{equipado}'")
 
@@ -174,6 +186,7 @@ def realidad_mixta(frame, detector, cameraMatrix, distCoeffs, state, escenas):
         imagen_render = escenas[0].render()
         imagen_render_bgr = cv2.cvtColor(imagen_render, cv2.COLOR_RGBA2BGRA)
         frame = alphaBlending(imagen_render_bgr, frame.copy())
+
 
 
     # ---------------------------------------------------
@@ -345,7 +358,7 @@ def realidad_mixta(frame, detector, cameraMatrix, distCoeffs, state, escenas):
         )
 
         y = 110
-        estrellas_totales_total = progreso.get("estrellas_totales", 0)
+        estrellas_totales_total = state.usuario_data["estrellas_totales"]
 
         # Iteramos por mundos, evitando el campo global de estrellas
         for mundo, datos in progreso.items():
