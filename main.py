@@ -9,21 +9,21 @@ from modules.data_manager import MongoDBManager
 # --- Configuración y AR ---
 from config.calibracion import cargar_calibracion
 from ar.deteccion import crear_detector
-from modules.cuia import bestBackend, myVideo
+from utils.operaciones import bestBackend, myVideo
 
 # --- Núcleo del juego ---
 from modules.game_state import GameState
-from modules.tts_manager import TTSManager
+from modules.audio_manager import AudioManager
 from modules.voice_recognition import inicializar_microfono, reconocimiento_voz
 from modules.ui_renderer import realidad_mixta, render_ui
-from modules.gestorJuegos import GestorJuegosAR
+from modules.gestor_juegos import GestorJuegosAR
 
 # --- Modelos disponibles ---
 from models.modelos import rutas_frutas, rutas_letras, rutas_animales, rutas_verduras, rutas_numeros
 
 
 def main():
-    print("\n🌈 Iniciando Mundo de Luminia 🌟")
+    print("\nIniciando Mundo de Luminia")
 
     # --- Estado global ---
     mongo = MongoDBManager()
@@ -39,27 +39,27 @@ def main():
         print(f"Error crítico al conectar con MongoDB: {e}")
         return
 
-    # --- Inicializar TTS ---
+    # --- Inicializar Audios ---
     try:
-        tts_manager = TTSManager(
+        audio_manager = AudioManager(
             on_talk_start=lambda: setattr(state, "microfono_listo", False),
             on_talk_end=lambda: (
                 setattr(state, "microfono_listo", True),
                 setattr(state, "intro_terminada", True)
             )
         )
-        state.tts = tts_manager
+        state.audio = audio_manager
 
         intro_audio = "audios/introduccion.mp3"
         if os.path.exists(intro_audio):
-            print("🔊 Reproduciendo introducción de Tina...")
-            tts_manager.play_audio(intro_audio)
+            print("Reproduciendo introducción de Tina...")
+            audio_manager.play_audio(intro_audio)
         else:
-            print("[TTS] ⚠️ No se encontró audio de introducción.")
+            print("[audio] No se encontró audio de introducción.")
 
     except Exception as e:
-        print(f"[TTS Error] {e}")
-        tts_manager = None
+        print(f"[audio Error] {e}")
+        audio_manager = None
 
     # --- Inicializar cámara y AR ---
     cam = 0
@@ -76,7 +76,7 @@ def main():
     ar.process = lambda frame: realidad_mixta(frame.copy(), detector, cameraMatrix, distCoeffs, state, escenas)
 
     # --- Inicializar Gestor de Juegos ---
-    gestor = GestorJuegosAR(ui_renderer=None, voice_system=tts_manager, game_state=state)
+    gestor = GestorJuegosAR(ui_renderer=None, voice_system=audio_manager, game_state=state)
     state.gestor_juegos = gestor
 
     # --- Inicializar reconocimiento de voz ---
@@ -88,7 +88,7 @@ def main():
     hilo_microfono.start()
     hilo_voz.start()
 
-    print("📸 Cámara lista — mira a la cámara para comenzar")
+    print("Cámara lista — mira a la cámara para comenzar")
     print(" Marcadores disponibles:")
     print(f" Letras: {len(rutas_letras)} | Animales: {len(rutas_animales)} | Frutas: {len(rutas_frutas)} | Verduras: {len(rutas_verduras)} | Números: {len(rutas_numeros)}")
 
@@ -105,7 +105,7 @@ def main():
                 continue
 
             # Render principal (UI + AR + Tina)
-            frame = render_ui(frame, state, detector, cameraMatrix, distCoeffs, escenas, tts_manager)
+            frame = render_ui(frame, state, detector, cameraMatrix, distCoeffs, escenas, audio_manager)
             cv2.imshow("- Luminia -", frame)
 
             # Salida manual
@@ -115,7 +115,7 @@ def main():
 
             if state.fase == "inicio":
                 if state.intro_terminada:
-                    tts_manager.announce("Vamos a comenzar con el reconocimiento facial.")
+                    audio_manager.announce("Vamos a comenzar con el reconocimiento facial.")
                     state.intro_terminada = False
                     state.esperando_voz = True
                     state.microfono_listo = True
@@ -128,12 +128,12 @@ def main():
 
     finally:
         voice_thread_active[0] = False
-        if tts_manager:
-            tts_manager.stop()
+        if audio_manager:
+            audio_manager.stop()
         ar.release()
         cv2.destroyAllWindows()
         mongo.desconectar()
-        print("✅ Kids&Veggies cerrado correctamente")
+        print("✅ Luminia cerrado correctamente")
 
 
 if __name__ == "__main__":
