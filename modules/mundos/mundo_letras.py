@@ -6,7 +6,7 @@ import unicodedata
 
 class MundoLetrasAR:
     """
-    Mundo de las Letras — uno de los mundos mágicos de Luminia.
+    Mundo de las Letras.
     Contiene varios minijuegos: adivina, memoria y secuencia.
     """
     def __init__(self, ui_renderer, voice_system, game_state):
@@ -34,18 +34,6 @@ class MundoLetrasAR:
                         "LIBRO", "ESTRELLA", "AVION", "FRUTA", "ZAPATO", "PEZ",
                         "CAMION", "ARBOL", "VENTANA", "ESPEJO", "CAMA", "BALON",
                         "MANO", "OJO", "CORAZON", "CONEJO", "LEON", "TORO"]
-
-    # ---------------------------------------------------
-    # MÉTODO AUXILIAR: mostrar mensaje en pantalla
-    # ---------------------------------------------------
-    def mostrar_mensaje(self, texto, pos=(50, 60), color=(255, 255, 255), bg_color=(56, 118, 29), font_scale=0.7):
-        """
-        Dibuja un mensaje en el frame actual usando draw_text_with_background.
-        """
-        if hasattr(self.state, "frame_actual") and self.state.frame_actual is not None:
-            draw_text_with_background(self.state.frame_actual, texto, pos, font_scale, color, bg_color)
-        else:
-            print(f"[MundoLetrasAR] {texto}")  # fallback por consola si no hay frame
 
     # ---------------------------------------------------
     # MÉTODO AUXILIAR: normalizar texto (quitando tildes, mayúsculas y espacios)
@@ -90,7 +78,7 @@ class MundoLetrasAR:
         self.juego_en_curso = tipo
         self.state.fase = "jugando"
 
-         # ✨ Seleccionar palabras únicas si es secuencia
+         # Seleccionar palabras únicas si es secuencia
         if tipo == "secuencia":
             self.palabras_seleccionadas = random.sample(self.palabras, self.total_rondas)
 
@@ -126,8 +114,14 @@ class MundoLetrasAR:
         if comando_letras == respuesta_letras:
             print("✅ ¡Muy bien! Has acertado.")
             self.estrellas += 1
+            if hasattr(self.state, "gestor_juegos"):
+                self.state.gestor_juegos.mostrar_mensaje_pantalla("¡RESPUESTA CORRECTA!")
+                time.sleep(4)
         else:
             print(f"❌ No era '{comando}'. La respuesta correcta era '{self.respuesta_correcta}'.")
+            if hasattr(self.state, "gestor_juegos"):
+                self.state.gestor_juegos.mostrar_mensaje_pantalla("¡RESPUESTA INCORRECTA!")
+                time.sleep(2)
 
         # Avanzar ronda
         self.ronda_actual += 1
@@ -140,12 +134,21 @@ class MundoLetrasAR:
             # Termina minijuego
             print("🎉 ¡Has completado el minijuego!")
             print(f"Ganaste {self.estrellas} estrellas 🌟")
+            
 
             # Registrar resultados y volver al menú principal
             if hasattr(self.state, "gestor_juegos"):
                 self.state.gestor_juegos.registrar_resultado("letras", self.juego_en_curso, self.estrellas)
+                self.state.gestor_juegos.mostrar_mensaje_pantalla(
+                    f" Has ganado {self.estrellas} estrellas y {self.estrellas} lumios",
+                    duracion=4
+                )
+                time.sleep(4)
+                
             else:
                 print("⚠️ No se pudo registrar el progreso (gestor no disponible).")
+            
+            self.state.fase = "menu_principal"
 
     # ---------------------------------------------------
     # MINIJUEGOS
