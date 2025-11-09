@@ -184,6 +184,28 @@ class GestorJuegosAR:
         self.state.fase = "disfraces"
         self.state.datos_disfraces = disfraces
 
+    def _equipar_disfraz(self, nombre_interno):
+        """
+        Equipa un disfraz y actualiza el estado local para que la UI y el 3D se actualicen inmediatamente.
+        """
+        if not self.state.usuario_actual:
+            return
+
+        # Actualizar estado local
+        if "disponibles" not in self.state.datos_disfraces:
+            self.state.datos_disfraces["disponibles"] = []
+        if nombre_interno not in self.state.datos_disfraces["disponibles"]:
+            self.state.datos_disfraces["disponibles"].append(nombre_interno)
+
+        self.state.datos_disfraces["equipado"] = nombre_interno
+
+        # También actualizar en la base de datos
+        usuario_id = self.state.usuario_actual
+        mongo.collection.update_one(
+            {"_id": usuario_id},
+            {"$addToSet": {"disfraces.disponibles": nombre_interno},  # asegura que no haya duplicados
+            "$set": {"disfraces.equipado": nombre_interno}}
+        )
 
 
     # ----------------------------------------------------------
@@ -195,10 +217,10 @@ class GestorJuegosAR:
             return
 
         usuario_id = self.state.usuario_actual
-        disfraces = mongo.obtener_disfraces_usuario(usuario_id)
-        lumios = mongo.obtener_datos_usuario(usuario_id).get("lumios", 0)
+        datos_usuario = mongo.obtener_datos_usuario(usuario_id)
+        disfraces = datos_usuario.get("disfraces", {})
+        lumios = datos_usuario.get("lumios", 0)
 
-        # Normalizamos el comando
         cmd = comando.lower().strip()
 
         # -----------------------------
@@ -206,35 +228,43 @@ class GestorJuegosAR:
         # -----------------------------
         if cmd.startswith("comprar "):
             nombre = cmd.replace("comprar ", "").strip()
-            # traducir español a nombre interno
             nombre_interno = next((k for k,v in self.traduccion_mascotas.items() if v.lower() == nombre), None)
             if not nombre_interno:
                 self._mostrar(f"⚠️ Disfraz '{nombre}' no existe.")
                 return
 
-            costo = 20  # ejemplo: cada disfraz cuesta 20 lumios
+            costo = 20
             if lumios < costo:
-                self._mostrar("⚠️ No tienes lumios suficientes para comprar este disfraz.")
+                self._mostrar("⚠️ No tienes lumios suficientes.")
                 return
 
-            if nombre_interno in disfraces.get("comprados", []):
+            # Verificar si ya está en disponibles
+            if nombre_interno in disfraces.get("disponibles", []):
                 self._mostrar("⚠️ Ya tienes este disfraz.")
                 return
 
-            # restar lumios y añadir disfraz
+            # Actualizar MongoDB: restar lumios, añadir a disponibles y equipar
             mongo.collection.update_one(
                 {"_id": usuario_id},
-                {"$inc": {"lumios": -costo}, "$push": {"disfraces.comprados": nombre_interno}, "$set": {"disfraces.equipado": nombre_interno}}
+                {
+                    "$inc": {"lumios": -costo},
+                    "$push": {"disfraces.disponibles": nombre_interno},
+                    "$set": {"disfraces.equipado": nombre_interno}
+                }
             )
-            self.state.datos_disfraces["comprados"].append(nombre_interno)
-            self.state.datos_disfraces["equipado"] = nombre_interno
-            self.state.fase = "menu_principal"
 
+            # Actualizar estado local
+            self.state.datos_disfraces["disponibles"].append(nombre_interno)
+            self.state.datos_disfraces["equipado"] = nombre_interno
+
+            # Renderizar inmediatamente
+            self._equipar_disfraz(nombre_interno)
             self._mostrar(f"✅ Disfraz '{nombre}' comprado y equipado.")
+
             return
 
         # -----------------------------
-        # Equipar un disfraz
+        # Equipar un disfraz existente
         # -----------------------------
         if cmd.startswith("equipar "):
             nombre = cmd.replace("equipar ", "").strip()
@@ -243,19 +273,23 @@ class GestorJuegosAR:
                 self._mostrar(f"⚠️ Disfraz '{nombre}' no existe.")
                 return
 
-            if nombre_interno not in disfraces.get("comprados", []):
-                self._mostrar("⚠️ No puedes equipar un disfraz que no has comprado.")
+            if nombre_interno not in disfraces.get("disponibles", []):
+                self._mostrar("⚠️ No puedes equipar un disfraz que no tienes.")
                 return
 
-            # actualizar equipado
+            # Actualizar MongoDB
             mongo.collection.update_one(
                 {"_id": usuario_id},
                 {"$set": {"disfraces.equipado": nombre_interno}}
             )
 
-            self._mostrar(f"✅ Disfraz '{nombre}' equipado.")
+            # Actualizar estado local y renderizar
             self.state.datos_disfraces["equipado"] = nombre_interno
+            self._equipar_disfraz(nombre_interno)
+            self._mostrar(f"✅ Disfraz '{nombre}' equipado.")
+
             return
+
 
     def procesar_comando_voz(self, comando: str):
         comando = comando.lower().strip()
