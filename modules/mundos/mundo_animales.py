@@ -7,7 +7,7 @@ import unicodedata
 
 class MundoAnimalesAR:
     """
-    🌿 Mundo de los Animales — descubre las criaturas mágicas de Luminia.
+    Mundo de los Animales.
     Incluye los minijuegos: adivina, sonido y clasificar.
     """
 
@@ -50,12 +50,6 @@ class MundoAnimalesAR:
             "Butterfly": "silencio",
             "Snowy_Owls": "ulular"
         }
-
-    def mostrar_mensaje(self, texto, pos=(50, 60), color=(255, 255, 255), bg_color=(56, 118, 29), font_scale=0.7):
-        if hasattr(self.state, "frame_actual") and self.state.frame_actual is not None:
-            draw_text_with_background(self.state.frame_actual, texto, pos, font_scale, color, bg_color)
-        else:
-            print(f"[MundoLetrasAR] {texto}")
 
     def normalizar(self, texto):
         if texto is None:
@@ -146,10 +140,15 @@ class MundoAnimalesAR:
         if comparable == respuesta_normalizada:
             print("✅ ¡Muy bien! Has acertado.")
             self.estrellas += 1
+            if hasattr(self.state, "gestor_juegos"):
+                self.state.gestor_juegos.mostrar_mensaje_pantalla("RESPUESTA CORRECTA!")
+                time.sleep(4)
         else:
             nombre_correcto_visible = self._nombre_visible(self.respuesta_correcta)
             print(f"❌ No era '{comando}'. La respuesta correcta era '{nombre_correcto_visible}' ({self.respuesta_correcta}).")
-
+            if hasattr(self.state, "gestor_juegos"):
+                self.state.gestor_juegos.mostrar_mensaje_pantalla("RESPUESTA INCORRECTA!")
+                time.sleep(2)
         self.ronda_actual += 1
         if self.ronda_actual < self.total_rondas:
             print(f"⭐ Vamos con la ronda {self.ronda_actual + 1}...")
@@ -160,19 +159,26 @@ class MundoAnimalesAR:
             print(f"Ganaste {self.estrellas} estrellas 🌟")
             if hasattr(self.state, "gestor_juegos"):
                 self.state.gestor_juegos.registrar_resultado("animales", self.juego_en_curso, self.estrellas)
+                self.state.gestor_juegos.mostrar_mensaje_pantalla(
+                    f" Has ganado {self.estrellas} estrellas y {self.estrellas} lumios",
+                    duracion=4
+                )
+                time.sleep(4)
+            self.state.fase = "menu_principal"
 
     def juego_adivina_animal(self):
+        self.modelos_a_mostrar = []
+
         opciones = random.sample(list(rutas_animales.keys()), 1)
         self.respuesta_correcta = random.choice(opciones)
 
         print("Tina: '¿Qué animal ves sobre la mesa mágica?'")
-
-        self.modelos_a_mostrar = []
         for animal in opciones:
             marker_id = random.randint(1, 12)
             self.modelos_a_mostrar.append(("animales", animal, marker_id))
 
     def juego_sonido_misterioso(self):
+        self.modelos_a_mostrar = []
         animal, sonido = random.choice(list(self.animales.items()))
         self.respuesta_correcta = animal
 
@@ -181,11 +187,11 @@ class MundoAnimalesAR:
         print(f"🔉 (Se reproduce un {sonido})")
         print("Tina: '¿Qué animal hace ese sonido?'")
 
-        self.modelos_a_mostrar = []
         marker_id = random.randint(1, 12)
         self.modelos_a_mostrar.append(("animales", animal, marker_id))
 
     def juego_clasificacion_animal(self):
+        self.modelos_a_mostrar = []
         animales_terrestres = [
             "Cat", "Dog", "Horse", "Cow", "Pig", "Sheep", "Hamster", "Reindeer", "Snail", "Chicken"
         ]
@@ -197,8 +203,6 @@ class MundoAnimalesAR:
         animales_voladores = [
             "Bird", "Bee", "Butterfly", "Snowy_Owls"
     ]
-
-
         # Para asegurar variedad, mezclamos animales de otras categorías como distractores
         todos_los_animales = animales_terrestres + animales_acuaticos + animales_voladores
 
@@ -222,7 +226,6 @@ class MundoAnimalesAR:
         nombres_visibles = [self._nombre_visible(a) for a in opciones]
         print(f"{mensaje} Aparecen: {', '.join(nombres_visibles)}")
 
-        self.modelos_a_mostrar = []
         marcadores_usados = random.sample(range(1, 13), len(opciones))
         for animal, marker_id in zip(opciones, marcadores_usados):
             self.modelos_a_mostrar.append(("animales", animal, marker_id))
