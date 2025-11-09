@@ -1,50 +1,61 @@
-import modules.cuia as cuia
+import utils.operaciones as operaciones
 import numpy as np
 
 # --------------------------------------------------------------
 # FUNCIÓN BASE
 # --------------------------------------------------------------
 def crear_modelo(ruta):
-    modelo = cuia.modeloGLTF(ruta)
+    modelo = operaciones.modeloGLTF(ruta)
     modelo.rotar((np.pi / 2.0, 0, 0))
-    modelo.escalar(0.15)
+    
+    # Escala según el tipo de modelo en la ruta
+    if "mascota" in ruta.lower():
+        modelo.escalar(0.05)
+    elif "castillos" in ruta.lower():
+        modelo.escalar(0.10)
+    else:
+        modelo.escalar(0.15)
+    
     modelo.flotar()
+    
     animaciones = modelo.animaciones()
     if animaciones:
         modelo.animar(animaciones[0])
+    
     return modelo
+
 
 # --------------------------------------------------------------
 # RUTAS DE LOS MODELOS
 # --------------------------------------------------------------
 # Letras
 rutas_letras = {
-    "A": "media/letras/A.glb",
-    "B": "media/letras/B.glb",
-    "C": "media/letras/C.glb",
-    "D": "media/letras/D.glb",
-    "E": "media/letras/E.glb",
-    "F": "media/letras/F.glb",
-    "G": "media/letras/G.glb",
-    "H": "media/letras/H.glb",
-    "I": "media/letras/I.glb",
-    "J": "media/letras/J.glb",
-    "K": "media/letras/K.glb",
-    "L": "media/letras/L.glb",
-    "M": "media/letras/M.glb",
-    "N": "media/letras/N.glb",
-    "O": "media/letras/O.glb",
-    "P": "media/letras/P.glb",
-    "Q": "media/letras/Q.glb",
-    "R": "media/letras/R.glb",
-    "S": "media/letras/S.glb",
-    "T": "media/letras/T.glb",
-    "U": "media/letras/U.glb",
-    "V": "media/letras/V.glb",
-    "W": "media/letras/W.glb",
-    "X": "media/letras/X.glb",
-    "Y": "media/letras/Y.glb",
-    "Z": "media/letras/Z.glb",
+    "A": "media/letras/A_nuevo.glb",
+    "B": "media/letras/B_nuevo.glb",
+    "C": "media/letras/C_nuevo.glb",
+    "D": "media/letras/D_nuevo.glb",
+    "E": "media/letras/E_nuevo.glb",
+    "F": "media/letras/F_nuevo.glb",
+    "G": "media/letras/G_nuevo.glb",
+    "H": "media/letras/H_nuevo.glb",
+    "I": "media/letras/I_nuevo.glb",
+    "J": "media/letras/J_nuevo.glb",
+    "K": "media/letras/K_nuevo.glb",
+    "L": "media/letras/L_nuevo.glb",
+    "M": "media/letras/M_nuevo.glb",
+    "N": "media/letras/N_nuevo.glb",
+    "O": "media/letras/O_nuevo.glb",
+    "P": "media/letras/P_nuevo.glb",
+    "Q": "media/letras/Q_nuevo.glb",
+    "R": "media/letras/R_nuevo.glb",
+    "S": "media/letras/S_nuevo.glb",
+    "T": "media/letras/T_nuevo.glb",
+    "U": "media/letras/U_nuevo.glb",
+    "V": "media/letras/V_nuevo.glb",
+    "W": "media/letras/W_nuevo.glb",
+    "X": "media/letras/X_nuevo.glb",
+    "Y": "media/letras/Y_nuevo.glb",
+    "Z": "media/letras/Z_nuevo.glb",
 }
 
 # Animales
@@ -58,17 +69,21 @@ rutas_animales = {
     "Cool_Pose": "media/animales/Cool_Pose.glb",
     "Cow": "media/animales/Cow.glb",
     "Dog": "media/animales/Dog.glb",
-    "Fishbowl": "media/animales/Fishbowl.glb",
     "Hamster": "media/animales/Hamster.glb",
     "Harp_Seal": "media/animales/Harp_Seal.glb",
     "Horse": "media/animales/Horse.glb",
     "Penguin": "media/animales/Penguin.glb",
     "Pig": "media/animales/Pig.glb",
-    "Rabbit": "media/animales/Rabbit.glb",
     "Reindeer": "media/animales/Reindeer.glb",
     "Sheep": "media/animales/Sheep.glb",
     "Snail": "media/animales/Snail.glb",
     "Snowy_Owls": "media/animales/Snowy_Owls.glb",
+    "Beluga_Whale": "media/animales/Beluga_Whale.glb",
+    "Crab": "media/animales/Crab.glb",
+    "Fish": "media/animales/Fish.glb",
+    "Jellyfish": "media/animales/Jellyfish.glb",
+    "Seashell": "media/animales/Seashell.glb",
+    "Starfish": "media/animales/Starfish.glb",
 }
 
 # Frutas
@@ -110,16 +125,16 @@ rutas_verduras = {
 
 # Números
 rutas_numeros = {
-    "0": "media/numeros/0.glb",
-    "1": "media/numeros/1.glb",
-    "2": "media/numeros/2.glb",
-    "3": "media/numeros/3.glb",
-    "4": "media/numeros/4.glb",
-    "5": "media/numeros/5.glb",
-    "6": "media/numeros/6.glb",
-    "7": "media/numeros/7.glb",
-    "8": "media/numeros/8.glb",
-    "9": "media/numeros/9.glb",
+    "0": "media/numeros/0_nuevo.glb",
+    "1": "media/numeros/1_nuevo.glb",
+    "2": "media/numeros/2_nuevo.glb",
+    "3": "media/numeros/3_nuevo.glb",
+    "4": "media/numeros/4_nuevo.glb",
+    "5": "media/numeros/5_nuevo.glb",
+    "6": "media/numeros/6_nuevo.glb",
+    "7": "media/numeros/7_nuevo.glb",
+    "8": "media/numeros/8_nuevo.glb",
+    "9": "media/numeros/9_nuevo.glb",
 }
 
 # Mascotas
@@ -154,9 +169,12 @@ rutas_mascota = {
     "Zebra": "media/mascota/Zebra.glb",
     "sami": "media/mascota/sami.glb",
     "tina_unicornio": "media/mascota/tina_unicornio.glb",
+    "Bee": "media/mascota/Bee.glb",
+    "Butterfly": "media/mascota/Butterfly.glb",
+    "Horn_beetle": "media/mascota/Horn_beetle.glb",
 }
 
-#REVISARLAS, NO EXISTEN AUN
+#Castillos
 rutas_castillos = {
     "letras_color": "media/castillos/castillo_letras.glb",
     "letras_bn": "media/castillos/castillo_letras.glb",
