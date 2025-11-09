@@ -249,6 +249,14 @@ def realidad_mixta(frame, detector, cameraMatrix, distCoeffs, state, escenas):
             state.cara_detectada = False
         
         return frame
+    
+    if state.fase == "esperando_nombre_registro":
+        draw_text_with_background(frame, "Dime tu nombre", (50, 100),
+                                      color=(255, 255, 255), bg_color=(100, 100, 100))
+        
+    if state.fase == "esperando_idioma_registro":
+        draw_text_with_background(frame, "Dime tu idioma", (50, 100),
+                                      color=(255, 255, 255), bg_color=(100, 100, 100))
 
     # ---------------------------------------------------
     # FASE: MENU PRINCIPAL
