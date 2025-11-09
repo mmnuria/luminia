@@ -1,4 +1,4 @@
-import modules.cuia as cuia
+import utils.operaciones as operaciones
 import numpy as np
 
 def fov(cameraMatrix, ancho, alto):
@@ -11,7 +11,7 @@ def fov(cameraMatrix, ancho, alto):
     return np.rad2deg(fov_rad)
 
 def crear_escena(modelo, cameraMatrix, ancho, alto):
-    escena = cuia.escenaPYGFX(fov(cameraMatrix, ancho, alto), ancho, alto)
+    escena = operaciones.escenaPYGFX(fov(cameraMatrix, ancho, alto), ancho, alto)
     escena.agregar_modelo(modelo)
     escena.ilumina_modelo(modelo)
     escena.iluminar()
