@@ -1,145 +1,3 @@
-# import json
-# import os
-
-# ###
-
-# from pymongo import MongoClient
-# from pymongo.errors import ConnectionFailure
-
-# class MongoDBManager:
-#     _instance = None  # Variable de clase para almacenar la única instancia
-
-#     def __new__(cls, *args, **kwargs):
-#         """Implementa el patrón Singleton asegurando una sola instancia."""
-#         if cls._instance is None:
-#             cls._instance = super(MongoDBManager, cls).__new__(cls)
-#         return cls._instance
-
-#     def __init__(self, uri="mongodb://root:example@localhost:27017/?authSource=admin", db_name="luminia_db", collection_name="users"):
-#         # Evitar reinicialización si la instancia ya existe
-#         if not hasattr(self, '_initialized'):
-#             self.uri = uri
-#             self.db_name = db_name
-#             self.collection_name = collection_name
-#             self.client = None
-#             self.db = None
-#             self.collection = None
-#             self._initialized = True
-
-#     def conectar(self):
-#         """Establece la conexión con MongoDB."""
-#         if self.client is not None:
-#             print("Ya está conectado a MongoDB")
-#             return
-#         try:
-#             self.client = MongoClient(self.uri)
-#             # Verificar la conexión
-#             self.client.admin.command('ping')
-#             print("Conexión exitosa a MongoDB")
-#             self.db = self.client[self.db_name]
-#             self.collection = self.db[self.collection_name]
-#         except ConnectionFailure as e:
-#             print(f"Error al conectar a MongoDB: {e}")
-#             raise
-#         except Exception as e:
-#             print(f"Error inesperado: {e}")
-#             raise
-
-#     def desconectar(self):
-#         """Cierra la conexión con MongoDB."""
-#         if self.client:
-#             self.client.close()
-#             print("Conexión cerrada")
-#             self.client = None
-#             self.db = None
-#             self.collection = None
-#         else:
-#             print("Cuidado! El cliente ya está cerrado o no se inicializó")
-
-#     def crear_usuario(self, nombre, edad=30):
-#         """Inserta un nuevo usuario en la colección."""
-#         try:
-#             self.collection.insert_one({"nombre": nombre, "edad": edad})
-#             print(f"Usuario {nombre} creado")
-#         except Exception as e:
-#             print(f"Error al crear usuario: {e}")
-
-#     def encontrar_usuario(self, nombre):
-#         """Busca usuarios por nombre en la colección."""
-#         try:
-#             usuarios = self.collection.find({"nombre": nombre})
-#             for usuario in usuarios:
-#                 print("Usuario:", usuario)
-#             return usuarios
-#         except Exception as e:
-#             print(f"Error al buscar usuario: {e}")
-
-
-# ###
-
-# DATA_PATH = "data/luminia_data.json"
-
-# def _asegurar_directorio():
-#     if not os.path.exists("data"):
-#         os.makedirs("data")
-
-# # def cargar_data():
-# #     _asegurar_directorio()
-# #     if not os.path.exists(DATA_PATH):
-# #         return {"usuarios": {}, "game_state": {}}
-# #     with open(DATA_PATH, "r", encoding="utf-8") as f:
-# #         try:
-# #             data = json.load(f)
-# #             if "usuarios" not in data:
-# #                 data["usuarios"] = {}
-# #             if "game_state" not in data:
-# #                 data["game_state"] = {}
-# #             return data
-# #         except json.JSONDecodeError:
-# #             return {"usuarios": {}, "game_state": {}}
-
-# # def guardar_data(data):
-# #     _asegurar_directorio()
-# #     with open(DATA_PATH, "w", encoding="utf-8") as f:
-# #         json.dump(data, f, ensure_ascii=False, indent=4)
-
-# def cargar_data():
-#     _asegurar_directorio()
-#     if not os.path.exists(DATA_PATH):
-#         return {"usuarios": {}}
-#     with open(DATA_PATH, "r", encoding="utf-8") as f:
-#         try:
-#             data = json.load(f)
-#             if "usuarios" not in data:
-#                 data["usuarios"] = {}
-#             return data
-#         except json.JSONDecodeError:
-#             return {"usuarios": {}}
-
-# def guardar_data(data):
-#     _asegurar_directorio()
-#     with open(DATA_PATH, "w", encoding="utf-8") as f:
-#         json.dump(data, f, ensure_ascii=False, indent=4)
-
-# def sincronizar_usuario_y_game_state(nombre_usuario):
-#     datos = cargar_data()
-    
-#     if "game_state" not in datos or "usuario_data" not in datos["game_state"]:
-#         print("No hay game_state válido que sincronizar.")
-#         return
-    
-#     usuario_data = datos["game_state"]["usuario_data"]
-    
-#     # 🔄 Copiar usuario_data a usuarios[nombre]
-#     datos["usuarios"][nombre_usuario] = usuario_data
-    
-#     # También podrías querer actualizar ciertos valores del game_state
-#     # desde el usuario (si cambian fuera del juego)
-#     # datos["game_state"]["usuario_data"] = datos["usuarios"][nombre_usuario]
-    
-#     guardar_data(datos)
-#     print(f"✅ Datos sincronizados con el usuario '{nombre_usuario}'")
-
 from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure
 import time
@@ -166,19 +24,22 @@ class MongoDBManager:
         """Establece la conexión con MongoDB."""
         if self.client is not None:
             print("Ya está conectado a MongoDB")
-            return
+            return True
         try:
             self.client = MongoClient(self.uri, serverSelectionTimeoutMS=5000)
             self.client.admin.command('ping')
             print("Conexión exitosa a MongoDB")
             self.db = self.client[self.db_name]
             self.collection = self.db[self.collection_name]
+            return True
         except ConnectionFailure as e:
             print(f"Error al conectar a MongoDB: {e}")
             raise
+            return False
         except Exception as e:
             print(f"Error inesperado: {e}")
             raise
+            return False
 
     def asegurar_conexion(self):
         """Verifica si la conexión está activa; si no, intenta reconectar."""
@@ -211,8 +72,10 @@ class MongoDBManager:
             self.client = None
             self.db = None
             self.collection = None
+            return True
         else:
             print("Cuidado! El cliente ya está cerrado o no se inicializó")
+            return False
 
     def crear_usuario(self, datos_usuario):
         """Inserta un nuevo usuario. _id = nombre.lower()"""
@@ -288,8 +151,6 @@ class MongoDBManager:
         if usuario and "mundos_desbloqueados" in usuario:
             return usuario["mundos_desbloqueados"]
         return []
-    
-    # -------------------- NUEVAS FUNCIONES --------------------
 
     def obtener_nombre(self, nombre):
         """Devuelve el nombre del usuario"""
@@ -314,5 +175,47 @@ class MongoDBManager:
         if usuario and "lumios" in usuario:
             return usuario["lumios"]
         return 0
+    def obtener_datos_usuario(self, nombre):
+        """
+        Devuelve los datos generales de un usuario por su id (nombre de usuario).
+        """
+        usuario = self.collection.find_one({"_id": nombre.lower()})
+        return usuario or {}
 
+
+    def obtener_progreso_completo(self, nombre):
+        """
+        Devuelve el progreso completo del usuario, incluyendo todos los mundos.
+        """
+        usuario = self.collection.find_one(
+            {"_id": nombre.lower()},
+            {"mundos": 1, "estrellas_totales": 1, "_id": 0}
+        )
+        if not usuario:
+            return {}
+
+        progreso = usuario.get("mundos", {})
+        progreso["estrellas_totales"] = usuario.get("estrellas_totales", 0)
+        return progreso
+
+
+    def obtener_disfraces_usuario(self, nombre):
+        """
+        Devuelve los datos de los disfraces comprados y disponibles.
+        Si el usuario no tiene disfraces, devuelve valores por defecto.
+        """
+        usuario = self.collection.find_one(
+            {"_id": nombre.lower()},
+            {"disfraces": 1, "_id": 0}
+        )
+
+        if not usuario or "disfraces" not in usuario:
+            return {"comprados": [], "disponibles": [], "equipado": None}
+
+        disfraces = usuario.get("disfraces", {})
+        return {
+            "comprados": disfraces.get("comprados", []),
+            "disponibles": disfraces.get("disponibles", []),
+            "equipado": disfraces.get("equipado", None),
+        }
 
