@@ -1,7 +1,7 @@
 # Luminia
 **Author:** Nuria Manzano Mata. 
 
-**Final Degree Project – Bachelor’s in Computer Engineering**
+**Final Degree Project – Bachelor’s in Computer Engineering** The final grade obtained was a 10 (with highest honors).
 
 **Luminia** is an educational application aimed at children aged 4 to 6, designed to support the learning of basic concepts while developing cognitive and motor skills. The application combines augmented reality, implicit interaction, context awareness, and gamification, providing an engaging and interactive experience in themed worlds guided by the character Tina.
 
